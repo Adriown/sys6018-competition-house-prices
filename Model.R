@@ -40,7 +40,7 @@ test.data[test.data$MiscVal == 0 & !is.na(test.data$MiscVal),]$MiscFeature = "No
 
 train.data <- na.omit(train.data)
 test.data <- na.omit(test.data)
-
+#################################
 attach(train.data)
 str(train.data)
 
@@ -49,25 +49,40 @@ str(train.data)
 is.fact <- sapply(train.data, is.factor)
 factor = train.data[is.fact]
 colnames(factor)
-contrasts(train.data[is.fact])
 
-summary(train.data[is.fact])
 factor = train.data[is.fact]
 apply(train.data[is.fact], 2, function(x)length(unique(x)))
 # Utility only has 1 value. 
 
 train.data = subset(train.data, select = -c(Utilities))
 
-subset(df, select = c(a,c))
 # plot SalePrice
 hist(SalePrice)
 # skewed to the right 
+hist(log(SalePrice))
 
 
-lm(SalePrice~., data = train.data)
+fit  = lm(log(SalePrice)~., data = train.data)
+summary(fit)
+anova(fit)
+
+
+fit2 = lm(log(SalePrice)~.-PoolQC-GrLivArea-PavedDrive-OpenPorchSF-MiscVal-PoolArea-KitchenAbvGr-TotRmsAbvGrd-FireplaceQu-Electrical-LowQualFinSF-BsmtHalfBath-FullBath
+         -BedroomAbvGr-FullBath-BedroomAbvGr -BsmtCond-SaleType-YrSold-MoSold,data = train.data  )
+anova(fit2)
+summary(fit2)
+
+plot(fit$fitted.values)
+
+test.data = subset(test.data, select = -c(Utilities))
+# roofStyle error but will be fixed 
+results <- predict(fit2,newdata= test.data,type='response')
 
 
 
+#is.num <- sapply(train.data, is.numeric)
+#numeric <- train.data[is.num]
+#cov(numeric)
 
 
 

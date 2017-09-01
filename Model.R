@@ -1,3 +1,4 @@
+setwd("~/Documents/GitHub/sys6018-competition-house-prices")
 library(readr)
 library(dplyr)
 library(FNN)
@@ -5,6 +6,7 @@ library(ggplot2)
 
 train.data <- read_csv("Train.csv")
 test.data <-  read_csv("Test.csv")
+
 
 #NA in the context of the alley variable means that 
 #there is no alley access, not that the data was missing
@@ -39,10 +41,49 @@ test.data[test.data$MiscVal == 0 & !is.na(test.data$MiscVal),]$MiscFeature = "No
 
 train.data <- na.omit(train.data)
 test.data <- na.omit(test.data)
+#################################
+attach(train.data)
+str(train.data)
+
+# summary(train.data)
+
+is.fact <- sapply(train.data, is.factor)
+factor = train.data[is.fact]
+colnames(factor)
+
+factor = train.data[is.fact]
+apply(train.data[is.fact], 2, function(x)length(unique(x)))
+# Utility only has 1 value. 
+
+train.data = subset(train.data, select = -c(Utilities))
+
+# plot SalePrice
+hist(SalePrice)
+# skewed to the right 
+hist(log(SalePrice))
+
+
+fit  = lm(log(SalePrice)~., data = train.data)
+summary(fit)
+anova(fit)
+
+
+fit2 = lm(log(SalePrice)~.-PoolQC-GrLivArea-PavedDrive-OpenPorchSF-MiscVal-PoolArea-KitchenAbvGr-TotRmsAbvGrd-FireplaceQu-Electrical-LowQualFinSF-BsmtHalfBath-FullBath
+         -BedroomAbvGr-FullBath-BedroomAbvGr -BsmtCond-SaleType-YrSold-MoSold,data = train.data  )
+anova(fit2)
+summary(fit2)
+
+plot(fit$fitted.values)
+
+test.data = subset(test.data, select = -c(Utilities))
+# roofStyle error but will be fixed 
+results <- predict(fit2,newdata= test.data,type='response')
 
 
 
-
+#is.num <- sapply(train.data, is.numeric)
+#numeric <- train.data[is.num]
+#cov(numeric)
 
 
 

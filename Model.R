@@ -1,6 +1,7 @@
 library(readr)
 library(dplyr)
 library(FNN)
+library(ggplot2)
 
 train.data <- read_csv("Train.csv")
 test.data <-  read_csv("Test.csv")
@@ -56,18 +57,47 @@ k <- 10
 # Getting rid of the columns that don't have numeric data
 knn.data <- train.data[as.vector(sapply(train.data, typeof)) != 'character']
 
+# Let's subset to cross validate
+sub <- sample(1 : NROW(knn.data), size = NROW(knn.data) / 2)
+s1.train <- knn.data[sub,]     # Select subset for cross-validation
+s1.valid <- knn.data[-sub,]
 
 
 # This function will run the non-parametric k-nearest neighbors model
+dummy <- knn.reg(train = s1.train[1 : NCOL(s1.train) - 1], test = s1.valid[1 : NCOL(s1.train) - 1], y = s1.train[NCOL(s1.train)]$SalePrice, k = k)
 dummy <- knn.reg(train = knn.data[1 : NCOL(knn.data) - 1], y = knn.data[NCOL(knn.data)]$SalePrice, k = k)
 
+s1.valid$PredictedPrice <- dummy$pred
+ActualVsPredicted <- s1.valid[c('SalePrice', 'PredictedPrice')]
+
+ggplot(ActualVsPredicted, aes(PredictedPrice, SalePrice)) + 
+  geom_abline(slope = 1, intercept = 0) + 
+  geom_point()
+
+# Brief line for data cleaning -- mean for the quantitative values
+final.test.data <- test.data[as.vector(sapply(test.data, typeof)) != 'character']
+meansForReplacement <- colMeans(final.test.data, na.rm = T)
+
+namesWithNAs <- colnames(final.test.data)[apply(final.test.data, 2, function(X) sum(is.na(X))) > 0]
+final.test.data$LotFrontage[is.na(final.test.data$LotFrontage)] <- as.numeric(meansForReplacement['LotFrontage'])
+final.test.data$MasVnrArea[is.na(final.test.data$MasVnrArea)] <- as.numeric(meansForReplacement['MasVnrArea'])
+final.test.data$BsmtFinSF1[is.na(final.test.data$BsmtFinSF1)] <- as.numeric(meansForReplacement['BsmtFinSF1'])
+final.test.data$BsmtFinSF2[is.na(final.test.data$BsmtFinSF2)] <- as.numeric(meansForReplacement['BsmtFinSF2'])
+final.test.data$BsmtUnfSF[is.na(final.test.data$BsmtUnfSF)] <- as.numeric(meansForReplacement['BsmtUnfSF'])
+final.test.data$TotalBsmtSF[is.na(final.test.data$TotalBsmtSF)] <- as.numeric(meansForReplacement['TotalBsmtSF'])
+final.test.data$BsmtFullBath[is.na(final.test.data$BsmtFullBath)] <- as.numeric(meansForReplacement['BsmtFullBath'])
+final.test.data$BsmtHalfBath[is.na(final.test.data$BsmtHalfBath)] <- as.numeric(meansForReplacement['BsmtHalfBath'])
+final.test.data$GarageCars[is.na(final.test.data$GarageCars)] <- as.numeric(meansForReplacement['GarageCars'])
+final.test.data$GarageArea[is.na(final.test.data$GarageArea)] <- as.numeric(meansForReplacement['GarageArea'])
 
 
+# colMean <- apply(final.test.data, 2, function(X){
+#   X[is.na(X)] <- meansForReplacement[which(names(meansForReplacement) == )]
+# })
 
-install.packages('chemometrics')
-if(require(chemometrics)){
-  data(PAC);
-  pac.knn<- knn.reg(PAC$X, y=PAC$y, k=3);
-  
-  plot(PAC$y, pac.knn$pred, xlab="y", ylab=expression(hat(y)))
-} 
+
+test_predictions <- knn.reg(train = knn.data[1 : NCOL(knn.data) - 1], test = test.data[as.vector(sapply(test.data, typeof)) != 'character'], y = knn.data[NCOL(knn.data)]$SalePrice, k = k)
+test_predictions <- knn.reg(train = knn.data[1 : NCOL(knn.data) - 1], test = final.test.data[as.vector(sapply(final.test.data, typeof)) != 'character'], y = knn.data[NCOL(knn.data)]$SalePrice, k = k)
+submit_this <- test.data['Id']
+submit_this$SalePrice <- test_predictions$pred
+write_csv(submit_this, 'non_par_kaggle_entry_1.csv')

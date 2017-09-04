@@ -1,5 +1,6 @@
 library(readr)
 library(dplyr)
+
 library(FNN)
 library(ggplot2)
 
@@ -47,52 +48,129 @@ train.data <- na.omit(train.data)
 test.data <- na.omit(test.data)
 
 
-#################################
+##################################
+##       PARAMETRIC       ##
+##################################
 
 attach(train.data)
 str(train.data)
 
 
-
 # summary(train.data)
 
-is.fact <- sapply(train.data, is.factor)
-factor = train.data[is.fact]
-colnames(factor)
+# find the columns with character values  
+character <- sapply(train.data, is.character)
+train_character= train.data[character]
+colnames(train_character)  # name of all the character variables 
 
-factor = train.data[is.fact]
-apply(train.data[is.fact], 2, function(x)length(unique(x)))
+
+apply(train_character, 2, function(x)length(unique(x)))
 # Utility only has 1 value. 
 
+# As Utility only contains 1 value so we decide to remove Utilities 
 train.data = subset(train.data, select = -c(Utilities))
 
-# plot SalePrice
-hist(SalePrice)
-# skewed to the right 
-hist(log(SalePrice))
 
+# Have some overview of the data 
+numeric <- sapply(train.data, is.numeric)
+train_numeric= train.data[numeric]
+attach(train_numeric)
+boxplot(train_numeric[1:36])
+boxplot(SalePrice,main="boxplot for y")
+dev.off()
 
-fit  = lm(log(SalePrice)~., data = train.data)
+# correlation matrix for all the numeric variables 
+round(cor(train_numeric),3)
+
+# check multicolinearity 
+library(faraway)
+vif(train_numeric)
+
+# fit the model with all explanatory variables 
+fit  = lm(SalePrice~., data = train.data)
 summary(fit)
 anova(fit)
 
+# check assmuptions for linear regression model
+par(mfrow=c(2,2))
+plot(fit) # generally okay 
 
-fit2 = lm(log(SalePrice)~.-PoolQC-GrLivArea-PavedDrive-OpenPorchSF-MiscVal-PoolArea-KitchenAbvGr-TotRmsAbvGrd-FireplaceQu-Electrical-LowQualFinSF-BsmtHalfBath-FullBath
-         -BedroomAbvGr-FullBath-BedroomAbvGr -BsmtCond-SaleType-YrSold-MoSold,data = train.data  )
-anova(fit2)
-summary(fit2)
 
-plot(fit$fitted.values)
+# transformation of response variable SalePrice 
+library(MASS)
+boxcox(fit,data=train.data) # lamda very close to 0 so take log transformation 
 
+# further plot histogram of SalePrice
+hist(SalePrice)   
+# skewed to the right so we take log of SalePrice
+hist(log(SalePrice))
+
+
+fit.trans  = lm(log(SalePrice)~., data = train.data)
+summary(fit.trans)
+anova(fit.trans)
+
+par(mfrow=c(2,2)) 
+plot(fit.trans)
+
+# Model selection# 
+# stepwise model selection 
+start<-lm(log(SalePrice) ~1,data= train.data)
+end<-lm(log(SalePrice)~.,data= train.data)
+result.s<-step(start, scope=list(upper=end), direction="both",trace=FALSE) 
+summary(result.s)
+anova(result.s)
+
+##################
+# Prediction # 
+##################
+# some cleaning about test data 
 test.data = subset(test.data, select = -c(Utilities))
-# roofStyle error but will be fixed 
-results <- predict(fit2,newdata= test.data,type='response')
+
+summary(test.data)
+test.data$LotFrontage[is.na(test.data$LotFrontage)] <- mean(test.data$LotFrontage,na.rm=T)
+test.data$MasVnrArea[is.na(test.data$MasVnrArea)] <- mean(test.data$MasVnrArea,na.rm=T)
+test.data$BsmtFinSF1[is.na(test.data$BsmtFinSF1)] <- mean(test.data$BsmtFinSF1,na.rm=T)
+test.data$BsmtFinSF2[is.na(test.data$BsmtFinSF2)] <- mean(test.data$BsmtFinSF2,na.rm=T)
+test.data$BsmtUnfSF[is.na(test.data$BsmtUnfSF)] <- mean(test.data$BsmtUnfSF,na.rm=T)
+test.data$TotalBsmtSF[is.na(test.data$TotalBsmtSF)] <- mean(test.data$TotalBsmtSF,na.rm=T)
+test.data$BsmtHalfBath[is.na(test.data$BsmtHalfBath)] <- mean(test.data$BsmtHalfBath,na.rm=T)
+test.data$BsmtFullBath[is.na(test.data$BsmtFullBath)] <- mean(test.data$BsmtFullBath,na.rm=T)
+test.data$GarageCars[is.na(test.data$GarageCars)] <- mean(test.data$GarageCars,na.rm=T)
+test.data$GarageArea[is.na(test.data$GarageArea)] <- mean(test.data$GarageArea,na.rm=T)
 
 
+aggregate(Id ~ BsmtExposure, train.data, function(x) length(unique(x)))
+test.data$BsmtExposure[is.na(test.data$BsmtExposure)] <- "No"
 
-#is.num <- sapply(train.data, is.numeric)
-#numeric <- train.data[is.num]
-#cov(numeric)
+aggregate(Id ~ KitchenQual, train.data, function(x) length(unique(x)))
+test.data$KitchenQual[is.na(test.data$KitchenQual)] <- "TA"
+
+aggregate(Id ~ MSZoning, train.data, function(x) length(unique(x)))
+test.data$MSZoning[is.na(test.data$MSZoning)] <- "RL"
+
+aggregate(Id ~ BsmtFinType1,train.data, function(x) length(unique(x)))
+test.data$BsmtFinType1[is.na(test.data$BsmtFinType1)] <- "GLQ"
+
+aggregate(Id ~ SaleType,train.data, function(x) length(unique(x)))
+test.data$SaleType[is.na(test.data$SaleType)] <- "WD"
+
+aggregate(Id ~ Functional, train.data, function(x) length(unique(x)))
+# Typ 1109 appearance 
+
+
+test.data$Functional[is.na(test.data$Functional)]<-"Typ"
+test.data[test.data$Functional=="Sev",]$Functional<- "Typ"
+
+
+results <- predict(result.s,newdata= test.data,type='response')
+results[is.na(results)]
+par_pred <- exp(results)
+
+
+table = data.frame(test.data$Id,par_pred)
+
+write.table(table,file="par_kaggle_entry_1.csv",sep = ',', row.names = F,col.names = c('ID','SalePrice'))
 
 
 

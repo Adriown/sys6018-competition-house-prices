@@ -40,7 +40,6 @@ train.data[train.data$MiscVal == 0 & !is.na(train.data$MiscVal),]$MiscFeature = 
 test.data[test.data$MiscVal == 0 & !is.na(test.data$MiscVal),]$MiscFeature = "No Feature"
 
 
-pairs(train.data$SalePrice~train.data$I)
 
 
 apply(test.data,2,function(X) sum(is.na(X)))
@@ -55,6 +54,9 @@ test.data <- na.omit(test.data)
 
 attach(train.data)
 str(train.data)
+
+
+# summary(train.data)
 
 # find the columns with character values  
 character <- sapply(train.data, is.character)

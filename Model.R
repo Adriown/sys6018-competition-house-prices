@@ -1,4 +1,3 @@
-setwd("~/Documents/GitHub/sys6018-competition-house-prices")
 library(readr)
 library(dplyr)
 
@@ -174,7 +173,7 @@ write.table(table,file="par_kaggle_entry_1.csv",sep = ',', row.names = F,col.nam
 # model that will accurately predict the price of houses from the Kaggle housing competition
 ?knn.reg
 # Set the value of k at this location
-k <- 10
+k <- 7
 # Getting rid of the columns that don't have numeric data
 knn.data <- train.data[as.vector(sapply(train.data, typeof)) != 'character']
 
@@ -183,10 +182,52 @@ sub <- sample(1 : NROW(knn.data), size = NROW(knn.data) / 2)
 s1.train <- knn.data[sub,]     # Select subset for cross-validation
 s1.valid <- knn.data[-sub,]
 
+# Feature selection is difficult. Going to look quickly at correlations to see if I can pull out any information
+install.packages('corrplot')
+library(corrplot)
+M <- cor(knn.data)
+corrplot(M, method="color")
 
-# This function will run the non-parametric k-nearest neighbors model
+# Adding MoSold and YrSold together for a new column
+knn.data$YrMoSold <- as.integer(as.Date(paste0(knn.data$YrSold, '-', knn.data$MoSold, '-01')))
+
+# These are columns which are either unrelated to the data, categorical in nature, are the response variable, or are being expressed with another column
+colsToRemove <- c('Id', 'MSSubClass', 'MiscVal', 'MoSold', 'YrSold', 'SalePrice')
+colsToInclude <- c('OverallQual', 'GarageCars', 'BedroomAbvGr', 'BsmtFullBath', 'TotRmsAbvGrd', 'BsmtHalfBath')
+
+# This function will run the non-parametric k-nearest neighbors model -- this form will let you do cross-validation yourself
 dummy <- knn.reg(train = s1.train[1 : NCOL(s1.train) - 1], test = s1.valid[1 : NCOL(s1.train) - 1], y = s1.train[NCOL(s1.train)]$SalePrice, k = k)
-dummy <- knn.reg(train = knn.data[1 : NCOL(knn.data) - 1], y = knn.data[NCOL(knn.data)]$SalePrice, k = k)
+# This portion here will do its own cross-validation on your training set
+dummy <- knn.reg(train = knn.data[(colnames(knn.data) %in% colsToInclude)], 
+                 y = knn.data$SalePrice, 
+                 k = k)
+
+# Here we're looking for the k-value that gives us the lowest squared error on our predictions
+flex_finding <- unlist(lapply(X = 1:50, function(X){
+  knn.reg(train =  knn.data[(colnames(knn.data) %in% colsToInclude)], 
+          y = knn.data$SalePrice, 
+          k = X)$PRESS
+}))
+
+
+# Here we're looking for the feature selection that gives us the best PRESS for k = 10
+combinations <- as.matrix(expand.grid(3, 24, 20, 16, 22, 17))
+flex_finding <- unlist(lapply(X = 1 : NROW(combinations), function(X){
+  knn.reg(train =  knn.data[!(colnames(knn.data) %in% colsToRemove)][as.vector(combinations[X, ])],
+  y = knn.data$SalePrice,
+  k = 7)$PRESS
+}))
+
+
+
+colnames(knn.data[!(colnames(knn.data) %in% colsToRemove)])[as.vector(combinations[which(flex_finding == min(flex_finding)),])]
+as.vector(combinations[which(flex_finding == min(flex_finding)),])
+which(flex_finding == min(flex_finding))
+min(flex_finding)
+# k=7 best, with PRESS = 2.67E12
+# k=7, 1.831452e12 (with just 3 features)
+# LOWEST I COULD GET WAS k=7, 6 features (iterative), at PRESS = 1.59E12
+
 
 s1.valid$PredictedPrice <- dummy$pred
 ActualVsPredicted <- s1.valid[c('SalePrice', 'PredictedPrice')]
@@ -218,7 +259,10 @@ final.test.data$GarageArea[is.na(final.test.data$GarageArea)] <- as.numeric(mean
 
 
 test_predictions <- knn.reg(train = knn.data[1 : NCOL(knn.data) - 1], test = test.data[as.vector(sapply(test.data, typeof)) != 'character'], y = knn.data[NCOL(knn.data)]$SalePrice, k = k)
-test_predictions <- knn.reg(train = knn.data[1 : NCOL(knn.data) - 1], test = final.test.data[as.vector(sapply(final.test.data, typeof)) != 'character'], y = knn.data[NCOL(knn.data)]$SalePrice, k = k)
+test_predictions <- knn.reg(train = knn.data[(colnames(knn.data) %in% colsToInclude)], 
+                            test = final.test.data[(colnames(final.test.data) %in% colsToInclude)], 
+                            y = knn.data$SalePrice, 
+                            k = k)
 submit_this <- test.data['Id']
 submit_this$SalePrice <- test_predictions$pred
-write_csv(submit_this, 'non_par_kaggle_entry_1.csv')
+write_csv(submit_this, 'non_par_kaggle_entry_2.csv')

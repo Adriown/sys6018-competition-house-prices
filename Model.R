@@ -179,7 +179,10 @@ final.test.data$GarageArea[is.na(final.test.data$GarageArea)] <- as.numeric(mean
 
 
 test_predictions <- knn.reg(train = knn.data[1 : NCOL(knn.data) - 1], test = test.data[as.vector(sapply(test.data, typeof)) != 'character'], y = knn.data[NCOL(knn.data)]$SalePrice, k = k)
-test_predictions <- knn.reg(train = knn.data[1 : NCOL(knn.data) - 1], test = final.test.data[as.vector(sapply(final.test.data, typeof)) != 'character'], y = knn.data[NCOL(knn.data)]$SalePrice, k = k)
+test_predictions <- knn.reg(train = knn.data[(colnames(knn.data) %in% colsToInclude)], 
+                            test = final.test.data[(colnames(final.test.data) %in% colsToInclude)], 
+                            y = knn.data$SalePrice, 
+                            k = k)
 submit_this <- test.data['Id']
 submit_this$SalePrice <- test_predictions$pred
-write_csv(submit_this, 'non_par_kaggle_entry_1.csv')
+write_csv(submit_this, 'non_par_kaggle_entry_2.csv')

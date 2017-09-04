@@ -39,6 +39,12 @@ test.data[is.na(test.data$Fence),]$Fence = "No Fence"
 train.data[train.data$MiscVal == 0 & !is.na(train.data$MiscVal),]$MiscFeature = "No Feature" 
 test.data[test.data$MiscVal == 0 & !is.na(test.data$MiscVal),]$MiscFeature = "No Feature"
 
+
+pairs(train.data$SalePrice~train.data$I)
+
+
+apply(test.data,2,function(X) sum(is.na(X)))
+
 train.data <- na.omit(train.data)
 test.data <- na.omit(test.data)
 

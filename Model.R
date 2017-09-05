@@ -90,6 +90,8 @@ test.data$GarageCond[is.na(test.data$GarageCond)] <- "TA"
 test.data$Functional[is.na(test.data$Functional)]<-"Typ"
 test.data[test.data$Functional=="Sev",]$Functional<- "Typ"
 
+
+
 ##################################
 ##       PARAMETRIC       ##
 ##################################
@@ -153,6 +155,11 @@ anova(result.s)
 par(mfrow=c(2,2)) 
 plot(result.s) 
 
+results <- predict(result.s,newdata= test.data,type='response')
+results[is.na(results)]
+par_pred <- exp(results)
+table = data.frame(test.data$Id,par_pred)
+write.table(table,file="par_kaggle_entry_1.csv",sep = ',', row.names = F,col.names = c('ID','SalePrice'))
 
 ##################################
 ##       NON - PARAMETRIC       ##
